@@ -58,6 +58,15 @@ final class Main {
    */
   static final String dataFile = workingDir + "sample_data.nt";
 
+
+  /**
+   * Entrée du programme
+   */
+  public static void main(String[] args) throws Exception {
+    parseData();
+    parseQueries();
+  }
+
   // ========================================================================
 
   /**
@@ -82,13 +91,6 @@ final class Main {
     });
   }
 
-  /**
-   * Entrée du programme
-   */
-  public static void main(String[] args) throws Exception {
-    parseData();
-    parseQueries();
-  }
 
   // ========================================================================
 
