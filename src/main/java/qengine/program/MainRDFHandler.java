@@ -30,6 +30,11 @@ public final class MainRDFHandler extends AbstractRDFHandler {
   private final Store sopStore = new Store();
   private final Store opsStore = new Store();
 
+
+  private final Store ospStore = new Store();
+  private final Store psoStore = new Store();
+  private final Store posStore = new Store();
+
   private Integer currentKey = 0;
 
   @Override
@@ -42,6 +47,9 @@ public final class MainRDFHandler extends AbstractRDFHandler {
     this.sopStore.update(subjectKey, objectKey, predicateKey);
     this.opsStore.update(objectKey, predicateKey, subjectKey);
     this.spoStore.update(subjectKey, predicateKey, objectKey);
+    this.ospStore.update(objectKey, subjectKey, predicateKey);
+    this.psoStore.update(predicateKey, subjectKey, objectKey);
+    this.posStore.update(predicateKey, objectKey, subjectKey);
   }
 
   public int getKeyIfExists(String value) {
@@ -68,4 +76,16 @@ public final class MainRDFHandler extends AbstractRDFHandler {
   public Store getSpoStore() {
     return spoStore;
   }
+  public Store getOspStore() {
+    return ospStore;
+  }
+
+  public Store getPsoStore() {
+    return psoStore;
+  }
+
+  public Store getPosStore() {
+    return posStore;
+  }
+
 }
