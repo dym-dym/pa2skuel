@@ -14,20 +14,20 @@ public class Dictionary<V> {
     }
 
     public Integer getKeyIfExists(V value) {
-        if (invertedDictionary.containsKey(value)) {
-            return invertedDictionary.get(value);
+        if (getInvertedDictionary().containsKey(value)) {
+            return getInvertedDictionary().get(value);
         }
 
         currentKey++;
 
-        dictionary.put(currentKey, value);
-        invertedDictionary.put(value, currentKey);
+        getDictionary().put(currentKey, value);
+        getInvertedDictionary().put(value, currentKey);
 
         return currentKey;
     }
 
     public V getValue(Integer key) {
-        return dictionary.get(key);
+        return getDictionary().get(key);
     }
 
     public HashMap<Integer, V> getDictionary() {
@@ -36,9 +36,5 @@ public class Dictionary<V> {
 
     public HashMap<V, Integer> getInvertedDictionary() {
         return invertedDictionary;
-    }
-
-    public Integer len() {
-        return dictionary.size();
     }
 }

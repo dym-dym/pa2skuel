@@ -20,30 +20,19 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 public class Engine {
     private static final MainRDFHandler rdfHandler = new MainRDFHandler();
     private String baseURI = null;
-    /**
-     * Votre répertoire de travail où vont se trouver les fichiers à lire
-     */
+    //Votre répertoire de travail où vont se trouver les fichiers à lire
     private String workingDir = "./data/";
-    /**
-     * Fichier contenant les requêtes sparql
-     */
+    //Fichier contenant les requêtes sparql
     private String queryFile = workingDir + "sample_query.queryset";
-    /**
-     * Fichier contenant des données rdf
-     */
+    //Fichier contenant des données rdf
     private String dataFile = workingDir + "sample_data.nt";
     private boolean shuffleQueries = false;
     private boolean compareToJena = false;
-    private int warmupPercentage;
-
-
-    public Engine() {
-    }
+    private final int warmupPercentage;
 
     public Engine(String baseURI, String workingDir, String queryFile, String dataFile, boolean shuffle, boolean compareToJena, Integer warmupPercentage) {
         this.baseURI = baseURI;
@@ -102,6 +91,24 @@ public class Engine {
 
     // ========================================================================
 
+    private static List<String> processJenaResults(ResultSet resultSet) {
+        ArrayList<String> resultURLs = new ArrayList<>();
+
+        while (resultSet.hasNext()) {
+            QuerySolution solution = resultSet.nextSolution();
+            RDFNode resultNode = solution.get("v0");
+
+            if (resultNode.isResource()) {
+                resultURLs.add(resultNode.asResource().getURI());
+            } else {
+                resultURLs.add(resultNode.toString());
+            }
+        }
+        return resultURLs;
+    }
+
+    // ========================================================================
+
     /**
      * Méthode utilisée ici lors du parsing de requête sparql pour agir sur l'objet
      * obtenu.
@@ -111,24 +118,18 @@ public class Engine {
         return parseQuery(patterns, rdfHandler);
     }
 
-    // ========================================================================
-
     /**
      * Traite chaque requête lue dans {@link #queryFile} avec
      * {@link #processAQuery(ParsedQuery)}.
      */
     public void parseQueries() throws IOException {
         SPARQLParser sparqlParser = new SPARQLParser();
-        List<String> queryList  = Arrays.stream(Files.readString(Paths.get(queryFile))
-                        .trim()
-                        .split("(?<=})"))
-                .map(String::trim)
-                .collect(Collectors.toList());
+        List<String> queryList = getListFromFile(queryFile);
 
         if (shuffleQueries) {
             Collections.shuffle(queryList);
         }
-        if(warmupPercentage > 0) {
+        if (warmupPercentage > 0) {
             int nbOfElements = warmupPercentage * (queryList.size() / 100);
             queryList.subList(0, nbOfElements + 1).forEach(element -> processAQuery(sparqlParser.parseQuery(element, baseURI)));
         }
@@ -141,6 +142,7 @@ public class Engine {
 
         List<List<String>> engineResults = queryList.stream().map(element -> processAQuery(sparqlParser.parseQuery(element, baseURI))).toList();
 
+        // TODO: Récupérer les temps d'exécution et les comparer
         for (int i = 0; i < engineResults.size(); i++) {
             assert jenaResults != null;
             System.out.println("------------------");
@@ -150,12 +152,12 @@ public class Engine {
         }
     }
 
-    public static <T> Stream<T> getSliceOfStream(Stream<T> stream, int startIndex, int endIndex)
-    {
-        return stream
-                .toList()
-                .subList(startIndex, endIndex + 1)
-                .stream();
+    private static List<String> getListFromFile(String file) throws IOException {
+        return Arrays.stream(Files.readString(Paths.get(file))
+                        .trim()
+                        .split("(?<=})"))
+                .map(String::trim)
+                .collect(Collectors.toList());
     }
 
     /**
@@ -183,22 +185,6 @@ public class Engine {
             QueryExecution queryExecutor = QueryExecutionFactory.create(QueryFactory.create(query), model);
             return processJenaResults(queryExecutor.execSelect());
         }).toList();
-    }
-
-    private static List<String> processJenaResults(ResultSet resultSet) {
-        ArrayList<String> resultURLs = new ArrayList<>();
-
-        while (resultSet.hasNext()) {
-            QuerySolution solution = resultSet.nextSolution();
-            RDFNode resultNode = solution.get("v0");
-
-            if (resultNode.isResource()) {
-                resultURLs.add(resultNode.asResource().getURI());
-            } else {
-                resultURLs.add(resultNode.toString());
-            }
-        }
-        return resultURLs;
     }
 
 }

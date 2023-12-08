@@ -7,7 +7,6 @@ import java.util.stream.Collectors;
 
 public class Store extends HashMap<Integer, HashMap<Integer, List<Integer>>> {
 
-
     public Store() {
         super();
     }
@@ -16,7 +15,7 @@ public class Store extends HashMap<Integer, HashMap<Integer, List<Integer>>> {
         this.computeIfAbsent(key1, key -> new HashMap<>()).computeIfAbsent(key2, key -> new ArrayList<>()).add(key3);
     }
 
-    public  List<Integer> twoValuesFilter(Integer first, Integer second) {
+    public List<Integer> twoValuesFilter(Integer first, Integer second) {
         return this.entrySet().stream()
                 .filter(entry -> entry.getKey().equals(first))
                 .flatMap(entry -> entry.getValue().entrySet().stream())
