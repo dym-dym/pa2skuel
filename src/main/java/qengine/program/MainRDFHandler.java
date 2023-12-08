@@ -18,15 +18,10 @@ import org.jetbrains.annotations.NotNull;
  * </p>
  */
 public final class MainRDFHandler extends AbstractRDFHandler {
-
-
     private final Dictionary<String> dictionary = new Dictionary<String>();
-
     private final Store spoStore = new Store();
     private final Store sopStore = new Store();
     private final Store opsStore = new Store();
-
-
     private final Store ospStore = new Store();
     private final Store psoStore = new Store();
     private final Store posStore = new Store();

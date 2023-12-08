@@ -42,30 +42,19 @@ import java.util.stream.Stream;
  * @author Olivier Rodriguez <olivier.rodriguez1@umontpellier.fr>
  */
 final class Main {
-    static final String baseURI = null;
-    private static final MainRDFHandler rdfHandler = new MainRDFHandler();
-    private static final Engine queryHandlerEngine = new Engine();
-    /**
-     * Votre répertoire de travail où vont se trouver les fichiers à lire
-     */
-    static String workingDir = "./data/";
-    /**
-     * Fichier contenant les requêtes sparql
-     */
-    static String queryFile = workingDir + "sample_query.queryset";
-    /**
-     * Fichier contenant des données rdf
-     */
-    static String dataFile = workingDir + "sample_data.nt";
-    private static CommandLine commands;
-    private static boolean hasJena;
-    private static boolean debug;
-    private static Integer warmupDataAmount;
 
     /**
      * Entrée du programme
      */
     public static void main(String[] args) throws Exception {
+
+        Engine queryHandlerEngine = null;
+        CommandLine commands;
+        boolean compareToJena;
+        boolean debug;
+        boolean shuffle;
+        int warmupDataAmount = 0;
+
 
         Options options = getOptions();
 
@@ -75,23 +64,26 @@ final class Main {
 
         try {
             commands = cliParser.parse(options, args);
-            queryFile = commands.getOptionValue("queries");
-            dataFile = commands.getOptionValue("data");
-            hasJena = commands.hasOption("Jena");
+            String queryFile = commands.getOptionValue("queries");
+            String dataFile = commands.getOptionValue("data");
+            compareToJena = commands.hasOption("Jena");
             debug = commands.hasOption("debug");
+            shuffle = commands.hasOption("shuffle");
 
             if (commands.hasOption("warm")) {
                 warmupDataAmount = Math.max(0, Math.min(100, Integer.parseInt(commands.getOptionValue("warm"))));
 
             }
+            queryHandlerEngine = new Engine(null, "./data/", queryFile, dataFile, shuffle, warmupDataAmount);
 
         } catch (ParseException exception) {
             System.err.println("Error: Could not parse arguments properly: " + exception.getMessage());
             System.exit(1);
         }
 
-        parseData();
-        parseQueries();
+
+        queryHandlerEngine.parseData();
+        queryHandlerEngine.parseQueries();
     }
 
     @NotNull
@@ -103,83 +95,9 @@ final class Main {
         options.addOption("output", true, "Path to output folder");
         options.addOption("Jena", false, "Sets Jena as an oracle for query testing purposes against qengine");
         options.addOption("warm", true, "Sets a warming up round for queries using an int as a percentage of queries to use");
-        options.addOption("shuffle", true, "Should the entry data be shuffled");
+        options.addOption("shuffle", false, "Should the entry data be shuffled");
         options.addOption("debug", false, "Enable debug output");
         return options;
     }
 
-    // ========================================================================
-
-    /**
-     * Méthode utilisée ici lors du parsing de requête sparql pour agir sur l'objet
-     * obtenu.
-     */
-    public static void processAQuery(ParsedQuery query) {
-        List<StatementPattern> patterns = StatementPatternCollector.process(query.getTupleExpr());
-        queryHandlerEngine.parseQuery(patterns, rdfHandler).forEach(System.out::println);
-    }
-
-    // ========================================================================
-
-    /**
-     * Traite chaque requête lue dans {@link #queryFile} avec
-     * {@link #processAQuery(ParsedQuery)}.
-     */
-    private static void parseQueries() throws IOException {
-        /*
-         * Try-with-resources
-         *
-         * @see <a href=
-         *      "https://docs.oracle.com/javase/tutorial/essential/exceptions/tryResourceClose.html">Try-with-resources</a>
-         */
-        /*
-         * On utilise un stream pour lire les lignes une par une, sans avoir à toutes
-         * les stocker
-         * entièrement dans une collection.
-         */
-        try (Stream<String> lineStream = Files.lines(Paths.get(queryFile))) {
-            SPARQLParser sparqlParser = new SPARQLParser();
-            Iterator<String> lineIterator = lineStream.iterator();
-            StringBuilder queryString = new StringBuilder();
-
-            while (lineIterator.hasNext())
-                /*
-                 * On stocke plusieurs lignes jusqu'à ce que l'une d'entre elles se termine par
-                 * un '}'
-                 * On considère alors que c'est la fin d'une requête
-                 */ {
-                String line = lineIterator.next();
-                queryString.append(line);
-
-                if (line.trim().endsWith("}")) {
-
-                    //System.out.println(queryString);
-
-                    ParsedQuery query = sparqlParser.parseQuery(queryString.toString(), baseURI);
-
-                    processAQuery(query); // Traitement de la requête, à adapter/réécrire pour votre programme
-
-                    queryString.setLength(0); // Reset le buffer de la requête en chaine vide
-                }
-            }
-        }
-    }
-
-    /**
-     * Traite chaque triple lu dans {@link #dataFile} avec {@link MainRDFHandler}.
-     */
-    private static void parseData() throws IOException {
-
-
-        try (Reader dataReader = new FileReader(dataFile)) {
-            // On va parser des données au format ntriples
-            RDFParser rdfParser = Rio.createParser(RDFFormat.NTRIPLES);
-
-            // On utilise notre implémentation de handler
-            rdfParser.setRDFHandler(rdfHandler);
-
-            // Parsing et traitement de chaque triple par le handler
-            rdfParser.parse(dataReader, baseURI);
-        }
-    }
 }
