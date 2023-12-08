@@ -1,5 +1,10 @@
 package qengine.program;
 
+import org.apache.jena.query.*;
+import org.apache.jena.rdf.model.Model;
+import org.apache.jena.rdf.model.ModelFactory;
+import org.apache.jena.rdf.model.RDFNode;
+import org.apache.jena.util.FileManager;
 import org.eclipse.rdf4j.query.algebra.StatementPattern;
 import org.eclipse.rdf4j.query.algebra.helpers.StatementPatternCollector;
 import org.eclipse.rdf4j.query.parser.ParsedQuery;
@@ -33,17 +38,20 @@ public class Engine {
      */
     private String dataFile = workingDir + "sample_data.nt";
     private boolean shuffleQueries = false;
+    private boolean compareToJena = false;
     private int warmupPercentage;
+
 
     public Engine() {
     }
 
-    public Engine(String baseURI, String workingDir, String queryFile, String dataFile, boolean shuffle, Integer warmupPercentage) {
+    public Engine(String baseURI, String workingDir, String queryFile, String dataFile, boolean shuffle, boolean compareToJena, Integer warmupPercentage) {
         this.baseURI = baseURI;
         this.workingDir = workingDir;
         this.queryFile = queryFile;
         this.dataFile = dataFile;
         shuffleQueries = shuffle;
+        this.compareToJena = compareToJena;
         this.warmupPercentage = warmupPercentage;
     }
 
@@ -98,14 +106,9 @@ public class Engine {
      * Méthode utilisée ici lors du parsing de requête sparql pour agir sur l'objet
      * obtenu.
      */
-    public void processAQuery(ParsedQuery query, boolean print) {
+    public List<String> processAQuery(ParsedQuery query) {
         List<StatementPattern> patterns = StatementPatternCollector.process(query.getTupleExpr());
-
-        List<String> parsedQueries = parseQuery(patterns, rdfHandler);
-
-        if (print){
-            parsedQueries.forEach(System.out::println);
-        }
+        return parseQuery(patterns, rdfHandler);
     }
 
     // ========================================================================
@@ -116,29 +119,35 @@ public class Engine {
      */
     public void parseQueries() throws IOException {
         SPARQLParser sparqlParser = new SPARQLParser();
-        Stream<String> queryStream = Arrays.stream(Files.readString(Paths.get(queryFile))
+        List<String> queryList  = Arrays.stream(Files.readString(Paths.get(queryFile))
                         .trim()
                         .split("(?<=})"))
-                .map(String::trim);
-
-        List<String> queries = null;
-        List<String> queryList = queryStream.collect(Collectors.toList());
+                .map(String::trim)
+                .collect(Collectors.toList());
 
         if (shuffleQueries) {
             Collections.shuffle(queryList);
-            queries = queryList;
-        } else {
-            queries = queryStream.toList();
         }
-
         if(warmupPercentage > 0) {
-            List<String> warmupQueries = queries;
             int nbOfElements = warmupPercentage * (queryList.size() / 100);
-            warmupQueries.subList(0, nbOfElements + 1).forEach(element -> processAQuery(sparqlParser.parseQuery(element, baseURI), false));
+            queryList.subList(0, nbOfElements + 1).forEach(element -> processAQuery(sparqlParser.parseQuery(element, baseURI)));
         }
 
-        assert queries != null;
-        queries.forEach(element -> processAQuery(sparqlParser.parseQuery(element, baseURI), true));
+        List<List<String>> jenaResults = null;
+
+        if (compareToJena) {
+            jenaResults = jenaResults(queryList, dataFile);
+        }
+
+        List<List<String>> engineResults = queryList.stream().map(element -> processAQuery(sparqlParser.parseQuery(element, baseURI))).toList();
+
+        for (int i = 0; i < engineResults.size(); i++) {
+            assert jenaResults != null;
+            System.out.println("------------------");
+            System.out.println("Jena : " + jenaResults.get(i));
+            System.out.println("CustomEngine : " + engineResults.get(i));
+            System.out.println("Equals ? : " + engineResults.get(i).stream().sorted().toList().equals(jenaResults.get(i).stream().sorted().toList()));
+        }
     }
 
     public static <T> Stream<T> getSliceOfStream(Stream<T> stream, int startIndex, int endIndex)
@@ -165,4 +174,31 @@ public class Engine {
             rdfParser.parse(dataReader, baseURI);
         }
     }
+
+    private List<List<String>> jenaResults(List<String> queries, String data) {
+        Model model = ModelFactory.createDefaultModel();
+        FileManager.get().readModel(model, data);
+
+        return queries.stream().map(query -> {
+            QueryExecution queryExecutor = QueryExecutionFactory.create(QueryFactory.create(query), model);
+            return processJenaResults(queryExecutor.execSelect());
+        }).toList();
+    }
+
+    private static List<String> processJenaResults(ResultSet resultSet) {
+        ArrayList<String> resultURLs = new ArrayList<>();
+
+        while (resultSet.hasNext()) {
+            QuerySolution solution = resultSet.nextSolution();
+            RDFNode resultNode = solution.get("v0");
+
+            if (resultNode.isResource()) {
+                resultURLs.add(resultNode.asResource().getURI());
+            } else {
+                resultURLs.add(resultNode.toString());
+            }
+        }
+        return resultURLs;
+    }
+
 }

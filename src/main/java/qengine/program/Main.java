@@ -74,7 +74,7 @@ final class Main {
                 warmupDataAmount = Math.max(0, Math.min(100, Integer.parseInt(commands.getOptionValue("warm"))));
 
             }
-            queryHandlerEngine = new Engine(null, "./data/", queryFile, dataFile, shuffle, warmupDataAmount);
+            queryHandlerEngine = new Engine(null, "./data/", queryFile, dataFile, shuffle, compareToJena, warmupDataAmount);
 
         } catch (ParseException exception) {
             System.err.println("Error: Could not parse arguments properly: " + exception.getMessage());
