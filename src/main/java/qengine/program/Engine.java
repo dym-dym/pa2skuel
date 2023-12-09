@@ -19,6 +19,7 @@ import java.io.Reader;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class Engine {
     private static final MainRDFHandler rdfHandler = new MainRDFHandler();
@@ -114,7 +115,7 @@ public class Engine {
                         .trim()
                         .split("(?<=})"))
                 .map(String::trim)
-                .toList();
+                .collect(Collectors.toList());
     }
 
     /**
@@ -134,11 +135,12 @@ public class Engine {
         SPARQLParser sparqlParser = new SPARQLParser();
         long begin = System.currentTimeMillis();
         List<String> queryList = getListFromFile(queryFile);
-        long queryReadTime = System.currentTimeMillis() - begin;
 
         if (shuffleQueries) {
             Collections.shuffle(queryList);
         }
+
+        long queryReadTime = System.currentTimeMillis() - begin;
         if (warmupPercentage > 0) {
             int nbOfElements = warmupPercentage * (queryList.size() / 100);
             queryList.subList(0, nbOfElements).forEach(element -> processAQuery(sparqlParser.parseQuery(element, baseURI)));
@@ -157,6 +159,8 @@ public class Engine {
             List<List<String>> jenaResults = jenaResults(queryList, dataFile);
             if (checkCorrectnessAndCompletenessAgainstJena(jenaResults, engineResults)) {
                 System.out.println("Results are correct and complete against Jena");
+            } else {
+                System.out.println("Discrepancies in result comparison against Jena");
             }
         }
     }
