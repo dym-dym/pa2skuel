@@ -25,6 +25,7 @@ public final class MainRDFHandler extends AbstractRDFHandler {
     private final Store ospStore = new Store();
     private final Store psoStore = new Store();
     private final Store posStore = new Store();
+    private int triplets = 0;
 
     @Override
     public void handleStatement(@NotNull Statement st) {
@@ -39,6 +40,8 @@ public final class MainRDFHandler extends AbstractRDFHandler {
         this.ospStore.update(objectKey, subjectKey, predicateKey);
         this.psoStore.update(predicateKey, subjectKey, objectKey);
         this.posStore.update(predicateKey, objectKey, subjectKey);
+
+        setTriplets(getTriplets() + 1);
     }
 
     public Store getSopStore() {
@@ -67,5 +70,13 @@ public final class MainRDFHandler extends AbstractRDFHandler {
 
     public Dictionary<String> getDictionary() {
         return dictionary;
+    }
+
+    public int getTriplets() {
+        return triplets;
+    }
+
+    public void setTriplets(int triplets) {
+        this.triplets = triplets;
     }
 }

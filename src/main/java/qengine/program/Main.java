@@ -25,10 +25,14 @@ import org.jetbrains.annotations.NotNull;
  */
 final class Main {
 
+    public static long startTime;
+    public static long dataParsingTime;
+
     /**
      * Entrée du programme
      */
     public static void main(String[] args) throws Exception {
+
 
         Engine queryHandlerEngine = null;
         CommandLine commands;
@@ -58,7 +62,12 @@ final class Main {
             System.exit(1);
         }
 
+        startTime = System.currentTimeMillis();
+
+        long begin = System.currentTimeMillis();
         queryHandlerEngine.parseData();
+        dataParsingTime = System.currentTimeMillis() - begin;
+
         queryHandlerEngine.parseQueries();
     }
 

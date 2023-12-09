@@ -19,10 +19,10 @@ import java.io.Reader;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
-import java.util.stream.Collectors;
 
 public class Engine {
     private static final MainRDFHandler rdfHandler = new MainRDFHandler();
+    private final int warmupPercentage;
     private String baseURI = null;
     //Votre répertoire de travail où vont se trouver les fichiers à lire
     private String workingDir = "./data/";
@@ -32,7 +32,7 @@ public class Engine {
     private String dataFile = workingDir + "sample_data.nt";
     private boolean shuffleQueries = false;
     private boolean compareToJena = false;
-    private final int warmupPercentage;
+    private long indexesCreationTime;
 
     public Engine(String baseURI, String workingDir, String queryFile, String dataFile, boolean shuffle, boolean compareToJena, Integer warmupPercentage) {
         this.baseURI = baseURI;
@@ -59,14 +59,14 @@ public class Engine {
                     return posStore.twoValuesFilter(predicateKey, objectKey);
                 })
                 // On en fait une liste de liste d'entiers
-                .collect(Collectors.toList());
+                .toList();
 
         // On retransforme cette liste en la liste de strings
         // en utilisant notre dictionnaire
         return findCommonElements(filteredLists)
                 .stream()
                 .map(element -> rdfHandler.getDictionary().getValue(element))
-                .collect(Collectors.toList());
+                .toList();
     }
 
     // Trouve les éléments communs entre deux listes d'entiers
@@ -109,6 +109,14 @@ public class Engine {
 
     // ========================================================================
 
+    private static List<String> getListFromFile(String file) throws IOException {
+        return Arrays.stream(Files.readString(Paths.get(file))
+                        .trim()
+                        .split("(?<=})"))
+                .map(String::trim)
+                .toList();
+    }
+
     /**
      * Méthode utilisée ici lors du parsing de requête sparql pour agir sur l'objet
      * obtenu.
@@ -124,40 +132,41 @@ public class Engine {
      */
     public void parseQueries() throws IOException {
         SPARQLParser sparqlParser = new SPARQLParser();
+        long begin = System.currentTimeMillis();
         List<String> queryList = getListFromFile(queryFile);
+        long queryReadTime = System.currentTimeMillis() - begin;
 
         if (shuffleQueries) {
             Collections.shuffle(queryList);
         }
         if (warmupPercentage > 0) {
             int nbOfElements = warmupPercentage * (queryList.size() / 100);
-            queryList.subList(0, nbOfElements + 1).forEach(element -> processAQuery(sparqlParser.parseQuery(element, baseURI)));
+            queryList.subList(0, nbOfElements).forEach(element -> processAQuery(sparqlParser.parseQuery(element, baseURI)));
         }
 
-        List<List<String>> jenaResults = null;
+        begin = System.currentTimeMillis();
+        List<List<String>> engineResults = queryList.stream().map(element -> processAQuery(sparqlParser.parseQuery(element, baseURI))).toList();
+        long workloadEvaluationTime = System.currentTimeMillis() - begin;
+
+        Exporter exporter = new Exporter("output", dataFile, queryFile, rdfHandler.getTriplets(),
+                queryList.size(), Main.dataParsingTime, queryReadTime, 1, 6,
+                indexesCreationTime, workloadEvaluationTime, System.currentTimeMillis() - Main.startTime, engineResults, queryList);
+        exporter.handleResults(true);
 
         if (compareToJena) {
-            jenaResults = jenaResults(queryList, dataFile);
-        }
-
-        List<List<String>> engineResults = queryList.stream().map(element -> processAQuery(sparqlParser.parseQuery(element, baseURI))).toList();
-
-        // TODO: Récupérer les temps d'exécution et les comparer
-        for (int i = 0; i < engineResults.size(); i++) {
-            assert jenaResults != null;
-            System.out.println("------------------");
-            System.out.println("Jena : " + jenaResults.get(i));
-            System.out.println("CustomEngine : " + engineResults.get(i));
-            System.out.println("Equals ? : " + engineResults.get(i).stream().sorted().toList().equals(jenaResults.get(i).stream().sorted().toList()));
+            List<List<String>> jenaResults = jenaResults(queryList, dataFile);
+            if (checkCorrectnessAndCompletenessAgainstJena(jenaResults, engineResults)) {
+                System.out.println("Results are correct and complete against Jena");
+            }
         }
     }
 
-    private static List<String> getListFromFile(String file) throws IOException {
-        return Arrays.stream(Files.readString(Paths.get(file))
-                        .trim()
-                        .split("(?<=})"))
-                .map(String::trim)
-                .collect(Collectors.toList());
+    private boolean checkCorrectnessAndCompletenessAgainstJena(List<List<String>> engineResults, List<List<String>> jenaResults) {
+        boolean res = true;
+        for (int i = 0; (i < engineResults.size()) && res; i++) {
+            res = engineResults.get(i).stream().sorted().toList().equals(jenaResults.get(i).stream().sorted().toList());
+        }
+        return res;
     }
 
     /**
@@ -170,7 +179,9 @@ public class Engine {
             RDFParser rdfParser = Rio.createParser(RDFFormat.NTRIPLES);
 
             // On utilise notre implémentation de handler
+            long begin = System.currentTimeMillis();
             rdfParser.setRDFHandler(rdfHandler);
+            indexesCreationTime = System.currentTimeMillis() - begin;
 
             // Parsing et traitement de chaque triple par le handler
             rdfParser.parse(dataReader, baseURI);
