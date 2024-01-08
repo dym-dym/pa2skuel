@@ -27,6 +27,8 @@ final class Main {
 
     public static long startTime;
     public static long dataParsingTime;
+    public static String outputPath;
+    public static long jenaTime;
 
     /**
      * Entrée du programme
@@ -50,6 +52,7 @@ final class Main {
             String dataFile = commands.getOptionValue("data");
             compareToJena = commands.hasOption("Jena");
             shuffle = commands.hasOption("shuffle");
+            outputPath = commands.getOptionValue("output");
 
             if (commands.hasOption("warm")) {
                 warmupDataAmount = Math.max(0, Math.min(100, Integer.parseInt(commands.getOptionValue("warm"))));

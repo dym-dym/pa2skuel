@@ -3,6 +3,7 @@ package qengine.program;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -66,11 +67,10 @@ public class Exporter {
         // Exportation to CSV file
         try {
             // Create CSV file content
-
-            String csvContent = "Data File,Query File,Triple Count,Query Count,Data Read Time (ms),Query Read Time (ms)," +
-                    "Dictionary Creation Time (ms),Index Count,Index Creation Time (ms)," +
-                    "Total Workload Evaluation Time (ms),Total Time (ms)\n" +
-                    getDataFile() + "," + getQueryFile() + "," + getNumberOfTriplets() +
+//"Data File,Query File,Triple Count,Query Count,Data Read Time (ms),Query Read Time (ms)," +
+            //"Dictionary Creation Time (ms),Index Count,Index Creation Time (ms)," +
+            //"Total Workload Evaluation Time (ms),Total Time (ms)\n" +
+            String csvContent = getDataFile() + "," + getQueryFile() + "," + getNumberOfTriplets() +
                     "," + getNumberOfQueries() + "," +
                     Math.max(1, getDataReadTime()) +
                     "," + Math.max(1, getQueryReadTime()) + "," +
@@ -84,7 +84,7 @@ public class Exporter {
             LocalDateTime now = LocalDateTime.now();
 
             if (exportToCSV) {
-                String outputResultsPath = getPath() + "/results" + dtf.format(now) + ".csv";
+                String outputResultsPath = "/results" + dtf.format(now) + ".csv";
                 StringBuilder resultContent = new StringBuilder();
                 resultContent.append("query,results\n");
                 for (int i = 0; i < results.size(); i += 1) {
@@ -98,8 +98,12 @@ public class Exporter {
                 Files.write(Paths.get(outputResultsPath), resultContent.toString().getBytes());
             }
 
-            Files.write(Paths.get(getPath() + "/output" + dtf.format(now) + ".csv"), csvContent.getBytes());
-            System.out.println("Results exported to CSV: " + getPath() + "/output" + dtf.format(now) + ".csv");
+            String path = Main.outputPath;
+            //System.out.println(path);
+            //Files.write(Paths.get(getPath() + "/output" + dtf.format(now) + ".csv"), csvContent.getBytes());
+            Files.write(Paths.get(path), csvContent.getBytes(), StandardOpenOption.APPEND, StandardOpenOption.CREATE);
+            //System.out.println("Results exported to CSV: " + getPath() + "/output" + dtf.format(now) + ".csv");
+            System.out.println("Results exported to CSV: " + path);
 
             System.out.printf("Data Read Time (ms): %d\n", Math.max(1, getDataReadTime()));
             System.out.printf("Query Read Time (ms): %d\n", Math.max(1, getQueryReadTime()));

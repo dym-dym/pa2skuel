@@ -49,7 +49,7 @@ public class Engine {
     public static List<String> parseQuery(List<StatementPattern> patterns, MainRDFHandler rdfHandler) {
         Store posStore = rdfHandler.getPosStore();
 
-        List<List<Integer>> filteredLists = patterns.stream()
+        List<List<Integer>> filteredLists = patterns.parallelStream()
                 // Pour chacun des patterns de la requête
                 .map(pattern -> {
                     // On récupère le prédicat et l'objet
@@ -65,7 +65,8 @@ public class Engine {
         // On retransforme cette liste en la liste de strings
         // en utilisant notre dictionnaire
         return findCommonElements(filteredLists)
-                .stream()
+                .parallelStream()
+                //.stream()
                 .map(element -> rdfHandler.getDictionary().getValue(element))
                 .toList();
     }
@@ -147,7 +148,7 @@ public class Engine {
         }
 
         begin = System.currentTimeMillis();
-        List<List<String>> engineResults = queryList.stream().map(element -> processAQuery(sparqlParser.parseQuery(element, baseURI))).toList();
+        List<List<String>> engineResults = queryList.parallelStream().map(element -> processAQuery(sparqlParser.parseQuery(element, baseURI))).toList();
         long workloadEvaluationTime = System.currentTimeMillis() - begin;
 
         Exporter exporter = new Exporter("output", dataFile, queryFile, rdfHandler.getTriplets(),
@@ -156,9 +157,15 @@ public class Engine {
         exporter.handleResults(true);
 
         if (compareToJena) {
+            System.out.println("Starting: Jena Evaluation");
+
+            begin = System.currentTimeMillis();
             List<List<String>> jenaResults = jenaResults(queryList, dataFile);
+            Main.jenaTime = System.currentTimeMillis() - begin;
+            System.out.println("Finished: Jena Evaluation took " + Main.jenaTime + "ms");
+            System.out.println("Starting: Comparison against Jena");
             if (checkCorrectnessAndCompletenessAgainstJena(jenaResults, engineResults)) {
-                System.out.println("Results are correct and complete against Jena");
+                System.out.println("Results are sound and complete against Jena");
             } else {
                 System.out.println("Discrepancies in result comparison against Jena");
             }
@@ -168,7 +175,7 @@ public class Engine {
     private boolean checkCorrectnessAndCompletenessAgainstJena(List<List<String>> engineResults, List<List<String>> jenaResults) {
         boolean res = true;
         for (int i = 0; (i < engineResults.size()) && res; i++) {
-            res = engineResults.get(i).stream().sorted().toList().equals(jenaResults.get(i).stream().sorted().toList());
+            res = engineResults.get(i).parallelStream().sorted().toList().equals(jenaResults.get(i).stream().sorted().toList());
         }
         return res;
     }
@@ -194,9 +201,10 @@ public class Engine {
 
     private List<List<String>> jenaResults(List<String> queries, String data) {
         Model model = ModelFactory.createDefaultModel();
-        FileManager.get().readModel(model, data);
+        model.read(dataFile, "NT");
+        //FileManager.get().readModel(model, data);
 
-        return queries.stream().map(query -> {
+        return queries.parallelStream().map(query -> {
             QueryExecution queryExecutor = QueryExecutionFactory.create(QueryFactory.create(query), model);
             return processJenaResults(queryExecutor.execSelect());
         }).toList();

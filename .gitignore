@@ -1,2 +1,8 @@
 target/
 output/
+benchmark*
+data/
+plots*
+results*
+venv/
+testsuite/
